@@ -1,0 +1,27 @@
+with claim as
+(
+SELECT appsflyer_id, is_claimed, event_time
+--REGEXP_EXTRACT(body, r'campaign_group_name":"(.*?)"') as campaign_name, 
+FROM `af-raw-data.internalv1.algexthttp`
+WHERE _PARTITIONDATE between '2020-01-01'  and '2020-01-14'
+  AND is_claimed = 'true' 
+  AND type='facebook' 
+ -- AND advertiser_id != '' 
+  AND app_id = "com.edreams.travel"
+  group by 1,2,3
+  ),
+ installs as
+ (
+ SELECT appsflyer_id, campaign, attributed_touch_type, media_source, contributor1_media_source, contributor2_media_source, contributor3_media_source
+    FROM `af-raw-data.prodv1.installs_android_*`
+    WHERE _PARTITIONDATE between '2020-01-01'  and '2020-01-14'
+    AND app_id = 'com.edreams.travel'
+    group by 1,2,3,4,5,6,7
+ )
+select substr(event_time, 0,10) date, 
+sum( case when is_claimed = "true" then 1 else 0 end) as fbclaim,
+sum( case when media_source = "facebook" then 1 else 0 end)  as afattributed,
+sum( case when contributor1_media_source = 'facebook' or contributor2_media_source = 'facebook' or contributor3_media_source = 'facebook' then 1 else 0 end) as facebook_assist
+From claim  left join installs using(appsflyer_id)
+group by 1
+order by date asc
